@@ -1,0 +1,36 @@
+# Development Docker Compose configuration
+version: '3.8'
+
+services:
+  mcp-gateway:
+    build: .
+    container_name: mcp-gateway-dev
+    ports:
+      - "8090:8090"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GATEWAY_HOST=0.0.0.0
+      - GATEWAY_PORT=8090
+      - LOG_LEVEL=DEBUG
+      - PYTHONHTTPSVERIFY=0
+      - CURL_CA_BUNDLE=""
+      - REQUESTS_CA_BUNDLE=""
+    volumes:
+      # Mount source code for hot reloading
+      - .:/app
+      - /app/venv  # Exclude venv directory
+    command: ["python", "-m", "uvicorn", "gateway_server:app", "--host", "0.0.0.0", "--port", "8090", "--reload"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
+
+networks:
+  mcp-network:
+    driver: bridge

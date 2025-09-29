@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  mcp-gateway:
+    build: .
+    container_name: mcp-gateway
+    ports:
+      - "8090:8090"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GATEWAY_HOST=0.0.0.0
+      - GATEWAY_PORT=8090
+      - LOG_LEVEL=INFO
+    volumes:
+      # Mount the application code for development (optional)
+      - .:/app
+      # Mount a volume for persistent data if needed
+      - mcp_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
+  # Example target API service (optional - for testing)
+  mock-api:
+    image: mockserver/mockserver:latest
+    container_name: mock-api
+    ports:
+      - "8000:1080"
+    environment:
+      - MOCKSERVER_WATCH_INITIALIZATION_JSON=true
+    volumes:
+      - ./mock-config:/config
+    networks:
+      - mcp-network
+    profiles:
+      - testing
+
+  # Redis for session storage (optional - for future use)
+  redis:
+    image: redis:7-alpine
+    container_name: mcp-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - mcp-network
+    profiles:
+      - production
+
+  # Nginx reverse proxy (optional - for production)
+  nginx:
+    image: nginx:alpine
+    container_name: mcp-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/ssl:ro
+    depends_on:
+      - mcp-gateway
+    networks:
+      - mcp-network
+    profiles:
+      - production
+
+volumes:
+  mcp_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  mcp-network:
+    driver: bridge

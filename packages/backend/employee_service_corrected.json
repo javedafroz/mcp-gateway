@@ -1,0 +1,280 @@
+{
+  "name": "employee_service",
+  "openapi_spec": {
+    "openapi": "3.1.0",
+    "info": {
+      "title": "Employee Service API",
+      "description": "API for managing employees and their project allocations",
+      "version": "1.0.0"
+    },
+    "paths": {
+      "/": {
+        "get": {
+          "summary": "Root",
+          "operationId": "root__get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/health": {
+        "get": {
+          "summary": "Health Check",
+          "operationId": "health_check_health_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/employees/": {
+        "get": {
+          "tags": ["employees"],
+          "summary": "Read Employees",
+          "description": "Retrieve employees.",
+          "operationId": "read_employees_api_v1_employees__get",
+          "parameters": [
+            {
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "title": "Skip",
+                "default": 0
+              },
+              "name": "skip",
+              "in": "query"
+            },
+            {
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "title": "Limit",
+                "default": 100
+              },
+              "name": "limit",
+              "in": "query"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "items": {
+                      "$ref": "#/components/schemas/Employee"
+                    },
+                    "type": "array",
+                    "title": "Response Read Employees Api V1 Employees  Get"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": ["employees"],
+          "summary": "Create Employee",
+          "description": "Create new employee.",
+          "operationId": "create_employee_api_v1_employees__post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeCreate"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "201": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Employee"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/employees/{employee_id}": {
+        "get": {
+          "tags": ["employees"],
+          "summary": "Read Employee",
+          "description": "Get employee by ID.",
+          "operationId": "read_employee_api_v1_employees__employee_id__get",
+          "parameters": [
+            {
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Employee Id"
+              },
+              "name": "employee_id",
+              "in": "path"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Employee"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "Employee": {
+          "properties": {
+            "employee_id": {
+              "type": "string",
+              "title": "Employee Id"
+            },
+            "first_name": {
+              "type": "string",
+              "title": "First Name"
+            },
+            "last_name": {
+              "type": "string",
+              "title": "Last Name"
+            },
+            "email": {
+              "type": "string",
+              "format": "email",
+              "title": "Email"
+            },
+            "phone": {
+              "type": "string",
+              "title": "Phone"
+            },
+            "department": {
+              "type": "string",
+              "title": "Department"
+            },
+            "position": {
+              "type": "string",
+              "title": "Position"
+            },
+            "skills": {
+              "type": "string",
+              "title": "Skills"
+            },
+            "status": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/EmployeeStatus"
+                }
+              ],
+              "default": "ACTIVE"
+            },
+            "hire_date": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Hire Date"
+            },
+            "id": {
+              "type": "integer",
+              "title": "Id"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Created At"
+            },
+            "updated_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Updated At"
+            }
+          },
+          "type": "object",
+          "required": ["employee_id", "first_name", "last_name", "email", "id", "created_at"],
+          "title": "Employee"
+        },
+        "EmployeeCreate": {
+          "properties": {
+            "employee_id": {
+              "type": "string",
+              "title": "Employee Id"
+            },
+            "first_name": {
+              "type": "string",
+              "title": "First Name"
+            },
+            "last_name": {
+              "type": "string",
+              "title": "Last Name"
+            },
+            "email": {
+              "type": "string",
+              "format": "email",
+              "title": "Email"
+            },
+            "phone": {
+              "type": "string",
+              "title": "Phone"
+            },
+            "department": {
+              "type": "string",
+              "title": "Department"
+            },
+            "position": {
+              "type": "string",
+              "title": "Position"
+            },
+            "skills": {
+              "type": "string",
+              "title": "Skills"
+            },
+            "status": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/EmployeeStatus"
+                }
+              ],
+              "default": "ACTIVE"
+            },
+            "hire_date": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Hire Date"
+            }
+          },
+          "type": "object",
+          "required": ["employee_id", "first_name", "last_name", "email"],
+          "title": "EmployeeCreate"
+        },
+        "EmployeeStatus": {
+          "enum": ["ACTIVE", "INACTIVE", "ON_LEAVE"],
+          "title": "EmployeeStatus",
+          "description": "An enumeration."
+        }
+      }
+    }
+  },
+  "base_url": "http://host.docker.internal:8000"
+}
