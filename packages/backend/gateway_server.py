@@ -12,9 +12,8 @@ import uvicorn
 
 from mcp_client_manager import MCPClientManager
 from openapi_mcp_generator import OpenAPIMCPGenerator
+from config import config
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class ChatRequest(BaseModel):
@@ -141,24 +140,19 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add CORS middleware
+# Add CORS middleware with configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # React development server
-        "http://127.0.0.1:3000",  # Alternative localhost
-        "http://localhost:8080",  # Alternative frontend port
-        "http://127.0.0.1:8080",  # Alternative frontend port
-    ],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_origins=config.get_cors_origins(),
+    allow_credentials=config.gateway.cors_credentials,
+    allow_methods=config.get_cors_methods(),
+    allow_headers=[config.gateway.cors_headers] if config.gateway.cors_headers != "*" else ["*"],
 )
 
 @app.post("/register-service", response_model=Dict[str, str])
-async def register_service(config: OpenAPIConfig):
+async def register_service(service_config: OpenAPIConfig):
     """Register a new service from OpenAPI specification"""
-    result = await gateway.register_openapi_service(config)
+    result = await gateway.register_openapi_service(service_config)
     return {"message": result}
 
 @app.delete("/delete-service/{service_name}", response_model=Dict[str, str])
@@ -188,8 +182,10 @@ async def health_check():
 if __name__ == "__main__":
     uvicorn.run(
         "gateway_server:app",
-        host="0.0.0.0",
-        port=8090,
-        reload=True,
-        log_level="info"
+        host=config.gateway.host,
+        port=config.gateway.port,
+        workers=config.gateway.workers,
+        reload=config.is_development(),
+        log_level=config.gateway.log_level.lower(),
+        access_log=config.is_development()
     )

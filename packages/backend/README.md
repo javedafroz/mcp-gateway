@@ -32,10 +32,17 @@ pip install -r requirements.txt
 
 ### 2. Set Environment Variables
 
-Create a `.env` file:
+Create a `.env` file from the example:
+```bash
+cp env_example.txt .env
+```
+
+Then edit `.env` and set your OpenAI API key:
 ```bash
 OPENAI_API_KEY=your_openai_api_key_here
 ```
+
+For comprehensive configuration options, see [CONFIGURATION.md](CONFIGURATION.md).
 
 ### 3. Start the Gateway
 

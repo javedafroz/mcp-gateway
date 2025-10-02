@@ -6,4 +6,5 @@ fastapi
 uvicorn[standard]
 aiohttp
 pydantic
+pydantic-settings
 python-dotenv

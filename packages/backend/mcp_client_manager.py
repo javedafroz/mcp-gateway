@@ -11,6 +11,8 @@ import os
 import httpx
 import ssl
 
+from config import config
+
 logger = logging.getLogger(__name__)
 
 class MCPClientManager:
@@ -23,30 +25,37 @@ class MCPClientManager:
     async def initialize(self):
         """Initialize the MCP client manager"""
         try:
-            # Create a custom async HTTP client with SSL verification disabled
-            # NOTE: This is for development only - not recommended for production
-            async_http_client = httpx.AsyncClient(
-                verify=False,  # Disable SSL verification
-                timeout=30.0
-            )
+            # Get HTTP client configuration from config
+            http_client_kwargs = config.get_http_client_kwargs()
             
-            # Initialize ChatOpenAI with custom async HTTP client
-            self.model = ChatOpenAI(
-                model="gpt-4o-mini",
-                openai_api_key=os.getenv("OPENAI_API_KEY"),
-                http_async_client=async_http_client,
-                temperature=0
-            )
+            # Create async HTTP client with configuration
+            async_http_client = httpx.AsyncClient(**http_client_kwargs)
             
-            logger.info("MCP Client Manager initialized with SSL verification disabled (async)")
+            # Get LLM configuration from config
+            llm_kwargs = config.get_llm_kwargs()
+            llm_kwargs['http_async_client'] = async_http_client
+            
+            # Initialize ChatOpenAI with configuration
+            self.model = ChatOpenAI(**llm_kwargs)
+            
+            logger.info(f"MCP Client Manager initialized with model: {config.llm.openai_model}")
+            logger.info(f"SSL verification: {config.llm.http_verify_ssl}")
+            logger.info(f"Temperature: {config.llm.temperature}")
+            logger.info(f"Max tokens: {config.llm.max_tokens}")
+            
         except Exception as e:
             logger.error(f"Failed to initialize model: {e}")
-            # Fallback to default initialization
-            try:
-                self.model = init_chat_model("openai:gpt-4o-mini")
-                logger.info("MCP Client Manager initialized with default configuration")
-            except Exception as fallback_error:
-                logger.error(f"Fallback initialization also failed: {fallback_error}")
+            
+            # Fallback to default initialization if enabled
+            if config.llm.enable_fallback:
+                try:
+                    fallback_model = config.llm.fallback_model or f"openai:{config.llm.openai_model}"
+                    self.model = init_chat_model(fallback_model)
+                    logger.info(f"MCP Client Manager initialized with fallback model: {fallback_model}")
+                except Exception as fallback_error:
+                    logger.error(f"Fallback initialization also failed: {fallback_error}")
+                    raise
+            else:
                 raise
     
     async def add_server(self, name: str, config: Dict[str, Any]):
@@ -101,8 +110,11 @@ class MCPClientManager:
             # Get tools from all servers
             tools = await self.client.get_tools()
             
-            # Create new agent with tools
-            self.agent = create_react_agent(self.model, tools)
+            # Get agent configuration from config
+            agent_kwargs = config.get_agent_kwargs()
+            
+            # Create new agent with tools and configuration
+            self.agent = create_react_agent(self.model, tools, **agent_kwargs)
             
             logger.info(f"Rebuilt MCP client with {len(self.servers)} servers and {len(tools)} tools")
             
@@ -130,8 +142,11 @@ class MCPClientManager:
                     logger.warning(f"Could not get MCP tools: {e}")
             
             if all_tools:
-                # Create new agent with all tools
-                self.agent = create_react_agent(self.model, all_tools)
+                # Get agent configuration from config
+                agent_kwargs = config.get_agent_kwargs()
+                
+                # Create new agent with all tools and configuration
+                self.agent = create_react_agent(self.model, all_tools, **agent_kwargs)
                 logger.info(f"Rebuilt agent with {len(all_tools)} total tools")
             else:
                 self.agent = None
@@ -147,10 +162,18 @@ class MCPClientManager:
             return "No MCP servers available. Please register a service first.", []
         
         try:
-            # Process message with agent
-            response = await self.agent.ainvoke({
-                "messages": [{"role": "user", "content": message}]
-            })
+            # Prepare agent configuration for execution
+            agent_config = {}
+            
+            # Add recursion limit (equivalent to max_iterations)
+            if config.langchain.agent_max_iterations:
+                agent_config["recursion_limit"] = config.langchain.agent_max_iterations
+            
+            # Process message with agent and configuration
+            response = await self.agent.ainvoke(
+                {"messages": [{"role": "user", "content": message}]},
+                config=agent_config
+            )
             
             # Extract response content and tools used
             response_content = ""
