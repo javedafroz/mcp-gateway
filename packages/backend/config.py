@@ -150,7 +150,7 @@ class GatewayConfig(BaseSettings):
     rate_limit_window: int = Field(60, env="RATE_LIMIT_WINDOW", description="Rate limit window in seconds")
     
     # Logging Configuration
-    log_level: str = Field("INFO", env="LOG_LEVEL", description="Logging level")
+    log_level: str = Field("DEBUG", env="LOG_LEVEL", description="Logging level")
     log_format: str = Field("%(asctime)s - %(name)s - %(levelname)s - %(message)s", env="LOG_FORMAT", description="Log format")
     log_file: Optional[str] = Field(None, env="LOG_FILE", description="Log file path")
     

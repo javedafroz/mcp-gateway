@@ -43,7 +43,29 @@ class GatewayServer:
         
     async def register_openapi_service(self, config: OpenAPIConfig) -> str:
         """Register a new service from OpenAPI specification"""
+        
+        # 🔍 DEBUG: Log service registration details
+        logger.info("🔧 SERVICE REGISTRATION STARTED")
+        logger.info("="*70)
+        logger.info(f"📝 Service Name: {config.name}")
+        logger.info(f"🌐 Base URL: {config.base_url}")
+        logger.info(f"📋 OpenAPI Version: {config.openapi_spec.get('openapi', 'unknown')}")
+        logger.info(f"📊 API Title: {config.openapi_spec.get('info', {}).get('title', 'unknown')}")
+        
+        # Count paths and operations
+        paths = config.openapi_spec.get('paths', {})
+        total_operations = 0
+        for path, methods in paths.items():
+            for method in methods.keys():
+                if method.lower() in ['get', 'post', 'put', 'delete', 'patch']:
+                    total_operations += 1
+        
+        logger.info(f"🛤️  API Paths: {len(paths)}")
+        logger.info(f"⚡ Total Operations: {total_operations}")
+        
         try:
+            logger.info("🔄 Generating MCP tools from OpenAPI specification...")
+            
             # Generate MCP tools from OpenAPI spec
             server_port = await self.openapi_generator.create_mcp_server(
                 name=config.name,
@@ -55,6 +77,15 @@ class GatewayServer:
             server_info = self.openapi_generator.active_servers[config.name]
             tools = server_info["tools"]
             
+            logger.info(f"✅ Generated {len(tools)} MCP tools")
+            
+            # Log each generated tool
+            for i, tool in enumerate(tools, 1):
+                tool_name = getattr(tool, 'name', 'unknown')
+                tool_desc = getattr(tool, 'description', 'No description')[:100]
+                logger.info(f"  🛠️  Tool {i}: {tool_name} - {tool_desc}")
+            
+            logger.info("🔄 Adding tools to MCP Client Manager...")
             await self.client_manager.add_direct_tools(config.name, tools)
             
             self.active_servers[config.name] = {
@@ -63,11 +94,26 @@ class GatewayServer:
                 "tools_count": len(tools)
             }
             
-            logger.info(f"Registered OpenAPI service: {config.name} with {len(tools)} tools")
+            logger.info("="*50)
+            logger.info("✅ SERVICE REGISTRATION COMPLETED")
+            logger.info("="*50)
+            logger.info(f"🎯 Service: {config.name}")
+            logger.info(f"🔧 Tools Generated: {len(tools)}")
+            logger.info(f"🚀 Port Assigned: {server_port}")
+            logger.info(f"📊 Total Active Services: {len(self.active_servers)}")
+            logger.info("="*70)
+            
             return f"Service {config.name} registered successfully with {len(tools)} tools"
             
         except Exception as e:
-            logger.error(f"Failed to register OpenAPI service {config.name}: {e}")
+            logger.error("💥 SERVICE REGISTRATION FAILED")
+            logger.error("="*50)
+            logger.error(f"🔥 Failed to register OpenAPI service {config.name}")
+            logger.error(f"📝 Error: {e}")
+            logger.error(f"🔍 Error Type: {type(e).__name__}")
+            import traceback
+            logger.error(f"📚 Traceback:\n{traceback.format_exc()}")
+            logger.error("="*70)
             raise HTTPException(status_code=500, detail=str(e))
     
     async def delete_openapi_service(self, service_name: str) -> str:
@@ -99,12 +145,33 @@ class GatewayServer:
     
     async def chat(self, request: ChatRequest) -> ChatResponse:
         """Process chat request using available MCP tools"""
+        
+        # 🔍 DEBUG: Log incoming chat request at gateway level
+        logger.info("🌟 GATEWAY CHAT REQUEST")
+        logger.info("="*70)
+        logger.info(f"📨 Received chat request from client")
+        logger.info(f"💬 Message: {request.message}")
+        logger.info(f"🔑 Session ID: {request.session_id}")
+        logger.info(f"📊 Active Services: {len(self.active_servers)}")
+        logger.info(f"🔧 Available Services: {list(self.active_servers.keys())}")
+        
         try:
             # Get response from MCP client manager
+            logger.info("🔄 Forwarding to MCP Client Manager...")
+            
             response, tools_used = await self.client_manager.process_message(
                 message=request.message,
                 session_id=request.session_id
             )
+            
+            # 🔍 DEBUG: Log gateway response
+            logger.info("📤 GATEWAY RESPONSE")
+            logger.info("="*50)
+            logger.info(f"🎯 Tools Used: {tools_used}")
+            logger.info(f"📝 Response Length: {len(response)} characters")
+            response_preview = response[:200] + "..." if len(response) > 200 else response
+            logger.info(f"💭 Response Preview: {response_preview}")
+            logger.info("="*70)
             
             return ChatResponse(
                 response=response,
@@ -113,7 +180,13 @@ class GatewayServer:
             )
             
         except Exception as e:
-            logger.error(f"Chat processing failed: {e}")
+            logger.error("💥 GATEWAY CHAT ERROR")
+            logger.error("="*50)
+            logger.error(f"🔥 Error in gateway chat processing: {e}")
+            logger.error(f"📝 Error Type: {type(e).__name__}")
+            import traceback
+            logger.error(f"📚 Traceback:\n{traceback.format_exc()}")
+            logger.error("="*70)
             raise HTTPException(status_code=500, detail=f"Chat processing failed: {str(e)}")
     
     async def shutdown(self):

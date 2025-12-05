@@ -205,32 +205,92 @@ async def {func_name}({", ".join(param_list)}) -> str:
         params["{param_name}"] = {param_name}
 '''
         
-        # Add HTTP request
+        # Add HTTP request with comprehensive logging
         func_code += f'''
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
-        async with aiohttp.ClientSession() as session:
+        # 🔍 DEBUG: Log API request details
+        logger.info("🌐 API REQUEST STARTED")
+        logger.info("="*60)
+        logger.info("🎯 Tool: {func_name}")
+        logger.info("🔗 Method: {method}")
+        logger.info(f"📍 URL: {{url}}")
+        
+        # Log parameters
+        if 'params' in locals() and params:
+            logger.info(f"🔍 Query Params: {{params}}")
+        else:
+            logger.info("🔍 Query Params: None")
 '''
         
         if method in ["POST", "PUT", "PATCH"] and request_body:
-            func_code += f'''            async with session.{method.lower()}(
+            func_code += f'''        
+        # Log request body for POST/PUT/PATCH
+        if request_data:
+            logger.info(f"📦 Request Body: {{request_data}}")
+        else:
+            logger.info("📦 Request Body: None")
+        
+        async with aiohttp.ClientSession() as session:
+            logger.info(f"🚀 Executing {method} request to {{url}}")
+            
+            async with session.{method.lower()}(
                 url, 
                 json=request_data,
                 params=params if 'params' in locals() else None
             ) as response:
 '''
         else:
-            func_code += f'''            async with session.{method.lower()}(
+            func_code += f'''        
+        async with aiohttp.ClientSession() as session:
+            logger.info(f"🚀 Executing {method} request to {{url}}")
+            
+            async with session.{method.lower()}(
                 url,
                 params=params if 'params' in locals() else None
             ) as response:
 '''
         
-        func_code += '''                if response.status == 200:
-                    result = await response.text()
-                    return result
+        func_code += '''                
+                # 🔍 DEBUG: Log response details
+                logger.info("📨 API RESPONSE RECEIVED")
+                logger.info(f"📊 Status Code: {response.status}")
+                logger.info(f"📋 Headers: {dict(response.headers)}")
+                
+                result_text = await response.text()
+                
+                if response.status == 200:
+                    logger.info(f"✅ Success Response Length: {len(result_text)} characters")
+                    
+                    # Log response preview (first 500 chars)
+                    preview = result_text[:500] + "..." if len(result_text) > 500 else result_text
+                    logger.info(f"📄 Response Preview: {preview}")
+                    
+                    logger.info("="*60)
+                    logger.info("✅ API REQUEST COMPLETED SUCCESSFULLY")
+                    logger.info("="*60)
+                    
+                    return result_text
                 else:
-                    return f"Error: HTTP {response.status} - {await response.text()}"
+                    logger.error(f"❌ Error Response: {result_text}")
+                    logger.error("="*60)
+                    logger.error("❌ API REQUEST FAILED")
+                    logger.error("="*60)
+                    
+                    return f"Error: HTTP {response.status} - {result_text}"
+                    
     except Exception as e:
+        logger.error("💥 API REQUEST EXCEPTION")
+        logger.error("="*60)
+        logger.error(f"🔥 Exception Type: {type(e).__name__}")
+        logger.error(f"📝 Exception Message: {str(e)}")
+        logger.error(f"🔍 Full Exception: {repr(e)}")
+        import traceback
+        logger.error(f"📚 Traceback:\\n{traceback.format_exc()}")
+        logger.error("="*60)
+        
         return f"Request failed: {str(e)}"
 '''
         

@@ -158,8 +158,28 @@ class MCPClientManager:
     
     async def process_message(self, message: str, session_id: str = "default") -> Tuple[str, List[str]]:
         """Process a chat message using available MCP tools"""
+        
+        # 🔍 DEBUG: Log incoming chat request
+        logger.info("="*80)
+        logger.info("🚀 CHAT REQUEST STARTED")
+        logger.info("="*80)
+        logger.info(f"📝 User Input: {message}")
+        logger.info(f"🔑 Session ID: {session_id}")
+        logger.info(f"⏰ Timestamp: {__import__('datetime').datetime.now().isoformat()}")
+        
         if not self.agent:
+            logger.warning("❌ No MCP servers available")
             return "No MCP servers available. Please register a service first.", []
+        
+        # 🔍 DEBUG: Log available tools
+        available_tools = []
+        if hasattr(self, 'direct_tools'):
+            for service_name, tools in self.direct_tools.items():
+                for tool in tools:
+                    tool_name = getattr(tool, 'name', 'unknown')
+                    available_tools.append(f"{service_name}.{tool_name}")
+        
+        logger.info(f"🔧 Available Tools ({len(available_tools)}): {available_tools}")
         
         try:
             # Prepare agent configuration for execution
@@ -169,38 +189,97 @@ class MCPClientManager:
             if config.langchain.agent_max_iterations:
                 agent_config["recursion_limit"] = config.langchain.agent_max_iterations
             
+            logger.info(f"⚙️ Agent Config: {agent_config}")
+            logger.info("🤖 Invoking AI Agent...")
+            
             # Process message with agent and configuration
             response = await self.agent.ainvoke(
                 {"messages": [{"role": "user", "content": message}]},
                 config=agent_config
             )
             
+            logger.info("✅ AI Agent completed processing")
+            
             # Extract response content and tools used
             response_content = ""
             tools_used = []
+            tool_calls_details = []
             
             if "messages" in response:
                 messages = response["messages"]
+                logger.info(f"📨 Agent returned {len(messages)} messages")
+                
+                # 🔍 DEBUG: Log all messages in the conversation
+                for i, msg in enumerate(messages):
+                    msg_type = type(msg).__name__
+                    if hasattr(msg, 'content'):
+                        content_preview = str(msg.content)[:200] + "..." if len(str(msg.content)) > 200 else str(msg.content)
+                        logger.info(f"  📄 Message {i+1} ({msg_type}): {content_preview}")
+                    
+                    # Extract tool calls with detailed information
+                    if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                        logger.info(f"  🔧 Message {i+1} has {len(msg.tool_calls)} tool calls:")
+                        for j, tool_call in enumerate(msg.tool_calls):
+                            tool_name = tool_call.get('name', 'unknown')
+                            tool_args = tool_call.get('args', {})
+                            tool_id = tool_call.get('id', 'unknown')
+                            
+                            logger.info(f"    🛠️  Tool Call {j+1}:")
+                            logger.info(f"       Name: {tool_name}")
+                            logger.info(f"       ID: {tool_id}")
+                            logger.info(f"       Args: {tool_args}")
+                            
+                            tools_used.append(tool_name)
+                            tool_calls_details.append({
+                                'name': tool_name,
+                                'id': tool_id,
+                                'args': tool_args
+                            })
+                    elif isinstance(msg, dict) and 'tool_calls' in msg:
+                        logger.info(f"  🔧 Message {i+1} has {len(msg['tool_calls'])} tool calls (dict format):")
+                        for j, tool_call in enumerate(msg['tool_calls']):
+                            tool_name = tool_call.get('name', 'unknown')
+                            tool_args = tool_call.get('args', {})
+                            
+                            logger.info(f"    🛠️  Tool Call {j+1}: {tool_name} with args {tool_args}")
+                            tools_used.append(tool_name)
+                            tool_calls_details.append({
+                                'name': tool_name,
+                                'args': tool_args
+                            })
+                
+                # Get final response
                 if messages:
                     last_message = messages[-1]
                     if hasattr(last_message, 'content'):
                         response_content = last_message.content
                     elif isinstance(last_message, dict) and 'content' in last_message:
                         response_content = last_message['content']
-                
-                # Extract tool calls from message history
-                for msg in messages:
-                    if hasattr(msg, 'tool_calls') and msg.tool_calls:
-                        for tool_call in msg.tool_calls:
-                            tools_used.append(tool_call.get('name', 'unknown'))
-                    elif isinstance(msg, dict) and 'tool_calls' in msg:
-                        for tool_call in msg['tool_calls']:
-                            tools_used.append(tool_call.get('name', 'unknown'))
+            
+            # 🔍 DEBUG: Log final results
+            logger.info("="*50)
+            logger.info("📊 CHAT PROCESSING RESULTS")
+            logger.info("="*50)
+            logger.info(f"🎯 Tools Used: {list(set(tools_used))}")
+            logger.info(f"📝 Response Length: {len(str(response_content))} characters")
+            response_preview = str(response_content)[:300] + "..." if len(str(response_content)) > 300 else str(response_content)
+            logger.info(f"💬 Response Preview: {response_preview}")
+            logger.info("="*80)
+            logger.info("✅ CHAT REQUEST COMPLETED")
+            logger.info("="*80)
             
             return response_content or str(response), list(set(tools_used))
             
         except Exception as e:
-            logger.error(f"Message processing failed: {e}")
+            logger.error("="*50)
+            logger.error("❌ CHAT PROCESSING ERROR")
+            logger.error("="*50)
+            logger.error(f"💥 Error Type: {type(e).__name__}")
+            logger.error(f"📝 Error Message: {str(e)}")
+            logger.error(f"🔍 Full Exception: {repr(e)}")
+            import traceback
+            logger.error(f"📚 Traceback:\n{traceback.format_exc()}")
+            logger.error("="*80)
             return f"Error processing message: {str(e)}", []
     
     async def get_available_tools(self) -> List[str]:
